@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Price Predictor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .container { max-width: 400px; margin: auto; }
+        input, button { padding: 0.5em; margin: 0.5em 0; width: 100%; }
+        .result { margin-top: 1em; padding: 1em; border: 1px solid #ccc; background: #f9f9f9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Stock Price Predictor</h2>
+        <form id="predictForm">
+            <label for="ticker">Stock Ticker:</label>
+            <input type="text" id="ticker" name="ticker" required>
+            <button type="submit">Predict</button>
+        </form>
+        <button id="infoBtn">Get Info</button>
+        <button id="historicalBtn">Get Historical</button>
+        <div id="result" class="result" style="display:none;"></div>
+    </div>
+    <script>
+        async function fetchAndShow(url, renderFn) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'none';
+            resultDiv.textContent = '';
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (res.ok) {
+                    resultDiv.innerHTML = renderFn(data);
+                } else {
+                    resultDiv.textContent = data.detail || 'Error fetching data.';
+                }
+            } catch (err) {
+                resultDiv.textContent = 'Network error.';
+            }
+            resultDiv.style.display = 'block';
+        }
+
+        document.getElementById('predictForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const ticker = document.getElementById('ticker').value.trim();
+            if (!ticker) return;
+            fetchAndShow(`/predict?ticker=${encodeURIComponent(ticker)}`, data =>
+                `<strong>${data.ticker}</strong><br>Last Close: $${data.last_close}<br>Predicted Next Close: $${data.predicted_next_close}<br><small>Model: ${data.prediction_model}</small>`
+            );
+        });
+
+        document.getElementById('infoBtn').addEventListener('click', function() {
+            const ticker = document.getElementById('ticker').value.trim();
+            if (!ticker) return;
+            fetchAndShow(`/info?ticker=${encodeURIComponent(ticker)}`, data =>
+                `<strong>${data.companyName}</strong> (${data.ticker})<br>Sector: ${data.sector}<br>Industry: ${data.industry}<br>Market Cap: $${data.marketCap}<br><small>${data.summary}</small>`
+            );
+        });
+
+        document.getElementById('historicalBtn').addEventListener('click', function() {
+            const ticker = document.getElementById('ticker').value.trim();
+            if (!ticker) return;
+            fetchAndShow(`/historical?ticker=${encodeURIComponent(ticker)}`, data => {
+                if (!Array.isArray(data) || !data.length) return 'No historical data.';
+                return `<strong>Historical Data (${ticker})</strong><br>` +
+                    `<table style='width:100%;font-size:0.9em'><tr><th>Date</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr>` +
+                    data.slice(0,10).map(row =>
+                        `<tr><td>${row.date}</td><td>${row.open}</td><td>${row.high}</td><td>${row.low}</td><td>${row.close}</td><td>${row.volume}</td></tr>`
+                    ).join('') + '</table>';
+            });
+        });
+    </script>
+</body>
+</html>
